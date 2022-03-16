@@ -214,15 +214,28 @@ var CUSTOM_USAGE_TEXT = `DESCRIPTION:
 USAGE:
    {{.Usage}}
 
-COMMANDS:
-   run-all               Run a terraform command against a 'stack' by running the specified command in each subfolder. E.g., to run 'terragrunt apply' in each subfolder, use 'terragrunt run-all apply'.
-   terragrunt-info       Emits limited terragrunt state on stdout and exits
-   validate-inputs       Checks if the terragrunt configured inputs align with the terraform defined variables.
-   graph-dependencies    Prints the terragrunt dependency graph to stdout
-   hclfmt                Recursively find hcl files and rewrite them into a canonical format.
-   aws-provider-patch    Overwrite settings on nested AWS providers to work around a Terraform bug (issue #13018)
-   render-json           Render the final terragrunt config, with all variables, includes, and functions resolved, as json. This is useful for enforcing policies using static analysis tools like Open Policy Agent, or for debugging your terragrunt config.
-   *                     Terragrunt forwards all other commands directly to Terraform
+MAIN TERRAGRUNT COMMANDS:
+  auth                                          Authenticate to Gruntwork
+  generate                                      Use code generators to scaffold out repos, modules, tests, etc
+  add-dependency                                Add a module dependency to your Terraform code
+  test                                          Run automated tests
+  release                                       Release a new version of a module
+  deploy                                        Deploy changes
+  catalog                                       Build your service catalog
+  update                                        Update a module to the latest version
+  dashboard                                     Fire up the Terragrunt dashboard web UI on localhost
+  pipeline                                      Configure your CI / CD pipeline
+
+OTHER TERRAGRUNT COMMANDS:
+   terragrunt-info                              Emits limited terragrunt state on stdout and exits
+   validate-inputs                              Checks if the terragrunt configured inputs align with the terraform defined variables.
+   graph-dependencies                           Prints the terragrunt dependency graph to stdout
+   hclfmt                                       Recursively find hcl files and rewrite them into a canonical format.
+   aws-provider-patch                           Overwrite settings on nested AWS providers to work around a Terraform bug (issue #13018)
+   render-json                                  Render the terragrunt config with everything resolved, as json. This is useful for static analysis (e.g., OPA) and for debugging.
+
+TERRAFORM COMMANDS:
+  *                                             Other than the commands listed above, Terragrunt forwards all commands directly to Terraform so you can run init, plan, apply, destroy, etc.
 
 GLOBAL OPTIONS:
    terragrunt-config                            Path to the Terragrunt config file. Default is terragrunt.hcl.
@@ -249,8 +262,8 @@ GLOBAL OPTIONS:
    terragrunt-override-attr                     A key=value attribute to override in a provider block as part of the aws-provider-patch command. May be specified multiple times.
    terragrunt-debug                             Write terragrunt-debug.tfvars to working folder to help root-cause issues.
    terragrunt-log-level                         Sets the logging level for Terragrunt. Supported levels: panic, fatal, error, warn (default), info, debug, trace.
-   terragrunt-strict-validate                   Sets strict mode for the validate-inputs command. By default, strict mode is off. When this flag is passed, strict mode is turned on. When strict mode is turned off, the validate-inputs command will only return an error if required inputs are missing from all input sources (env vars, var files, etc). When strict mode is turned on, an error will be returned if required inputs are missing OR if unused variables are passed to Terragrunt.
-   terragrunt-json-out                          The file path that terragrunt should use when rendering the terragrunt.hcl config as json. Only used in the render-json command. Defaults to terragrunt_rendered.json.
+   terragrunt-strict-validate                   Sets strict mode for the validate-inputs command, returning an error if required inputs are missing OR if unused variables are passed to Terragrunt.
+   terragrunt-json-out                          The file path to use when rendering the terragrunt.hcl config as json. Only used in the render-json command. Defaults to terragrunt_rendered.json.
 
 VERSION:
    {{.Version}}{{if len .Authors}}
@@ -296,8 +309,7 @@ func CreateTerragruntCli(version string, writer io.Writer, errwriter io.Writer) 
 	app.Usage = "terragrunt <COMMAND> [GLOBAL OPTIONS]"
 	app.Writer = writer
 	app.ErrWriter = errwriter
-	app.UsageText = `Terragrunt is a thin wrapper for Terraform that provides extra tools for working with multiple
-   Terraform modules, remote state, and locking. For documentation, see https://github.com/gruntwork-io/terragrunt/.`
+	app.UsageText = `Terraform on Rails. Terragrunt is a full-stack framework for Terraform that ships with all the tools you need to implement the full Terraform lifecycle, including creating modules, writing automated tests, managing versions, managing environments, automatically updating dependencies, and much more. https://terragrunt.gruntwork.io/`
 
 	return app
 }
@@ -365,6 +377,10 @@ func RunTerragrunt(terragruntOptions *options.TerragruntOptions) error {
 
 	if shouldRunGraphDependencies(terragruntOptions) {
 		return runGraphDependencies(terragruntOptions)
+	}
+
+	if isDesignSprintCommand(terragruntOptions) {
+		return runDesignSprintCommand(terragruntOptions)
 	}
 
 	if err := checkVersionConstraints(terragruntOptions); err != nil {
